@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Заметки</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="add-container">
+        <h1 class="add__header">Оффлайн заметки</h1>
+        <form id="note-form" class="add__form">
+            <input class="note-form__input-header" type="text" id="note-header" placeholder="Введите заголовок заметки" required>
+            <input class="note-form__input" type="text" id="note-input" placeholder="Введите заметку" required>
+            <button class="note-form__button-submit" type="submit">Добавить</button>
+        </form>
+    </div>
+
+    <div id="notes-container" class="notes-container">
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
