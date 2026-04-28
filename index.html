@@ -5,7 +5,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#F3F0E7">
-    <link rel="apple-touch-icon" href="/icons/icon-152x152.png">
+    <link rel="apple-touch-icon" href="/icons/aple-touch-icon-120x120.png">
     <meta name="apple-mobile-web-app-status-bar-style" content="blacktranslucent">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="icons/favicon.ico" sizes="16x16" type="image/ico">
@@ -13,18 +13,14 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="add-container">
-        <h1 class="add__header">Оффлайн заметки</h1>
-        <form id="note-form" class="add__form">
-            <input class="note-form__input-header" type="text" id="note-header" placeholder="Введите заголовок заметки" required>
-            <input class="note-form__input" type="text" id="note-input" placeholder="Введите заметку" required>
-            <button class="note-form__button-submit" type="submit">Добавить</button>
-        </form>
-    </div>
+    <nav class="navigate">
+        <button id="home-btn" class="navigate__home-btn">Главная</button>
+        <button id="about-btn" class="navigate__about-btn">О приложении</button>
+    </nav>
 
-    <div id="notes-container" class="notes-container">
+    <main id="content-div" class="container">
 
-    </div>
+    </main>
 
     <script src="app.js"></script>
 </body>
