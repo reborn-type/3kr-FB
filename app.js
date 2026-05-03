@@ -1,10 +1,109 @@
 const contentDiv = document.getElementById('content-div');
 const homeBtn = document.getElementById('home-btn');
 const aboutBtn = document.getElementById('about-btn');
+const socket = io('http://localhost:3001');
+
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+async function subscribeToPush () {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return; 
+
+    try {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array('BKTr8_maA0pndI8lidQoezr8wdIL6UzM6Q9ctzq7Cys303rIawKQ5UYt7ZYYDBaRSA2rU9dmWxtn5cfduzEBZNs')
+        });
+
+        await fetch('http://localhost:3001/subscribe', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(subscription)
+        });
+        console.log('Подписка на push отправлена');
+        return subscription;
+    } catch(e){
+        console.error("Тип ошибки:", e.name);
+        console.error("Сообщение:", e.message);
+        return null;
+    }
+}
+
+async function unsubscribeFromPush () {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return; 
+
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+
+    if(subscription){
+        try{
+            await fetch('http://localhost:3001/unsubscribe', {
+                method: "POST",
+                headers: {'Content-Type': "application/json"},
+                body: JSON.stringify({endpoint: subscription.endpoint})
+            });
+            console.log('Сервер удалил подписку');
+        } catch (e) {
+            console.error('Не удалось связаться с сервером для отписки', e);
+        }
+        await subscription.unsubscribe();
+        console.log('Отписка выполнена');
+    }
+}
+
+
 
 function setActiveBtn(activeId){
     [homeBtn, aboutBtn].forEach(btn => btn.classList.remove('active'));
     document.getElementById(activeId).classList.add('active');
+}
+
+async function updatePushButtonState() {
+    try{
+        const enableBtn = document.getElementById('enable-push');
+        const disableBtn = document.getElementById('disable-push');
+        const registration = await navigator.serviceWorker.ready;
+        if (!enableBtn || !disableBtn) return;
+        if (!('serviceWorker' in navigator)) return;
+
+        const subscription = await registration.pushManager.getSubscription();
+
+        console.log("Текущая подписка:", subscription);
+
+        if (subscription) {
+            enableBtn.style.display = 'none';
+            disableBtn.style.display = 'inline-block';
+        }
+
+        enableBtn.onclick = async () => {
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                await subscribeToPush();
+                await updatePushButtonState();
+                enableBtn.style.display = 'none';
+                disableBtn.style.display = 'inline-block';
+            } else {
+                alert('Доступ к уведомлениям запрещен');
+            }
+        };
+
+        disableBtn.onclick = async () => {
+            await unsubscribeFromPush();
+            await updatePushButtonState();
+            disableBtn.style.display = 'none';
+            enableBtn.style.display = 'inline-block';
+    }} catch (err) {
+        console.error("Ошибка при обновлении состояния кнопок:", err);
+    }
 }
 
 
@@ -17,23 +116,13 @@ async function loadContent(page){
         if(page == 'home'){
             initNotes();
         }
+
     } catch(e){
         contentDiv.innerHTML = `<p class="is-center text-error">Ошибка загрузки страницы.</p>`;
         console.error(e);
     }
 }
 
-homeBtn.addEventListener('click', () => {
-    setActiveBtn('home-btn');
-    loadContent('home');
-});
-
-aboutBtn.addEventListener('click', () => {
-    setActiveBtn('about-btn');
-    loadContent('about');
-});
-
-loadContent('home');
 
 function initNotes(){
     const form = document.getElementById('note-form');
@@ -45,7 +134,7 @@ function initNotes(){
         
         if (!notesList) return;
 
-        const notes = JSON.parse(localStorage.getItem('notes')) || '[]';
+        const notes = JSON.parse(localStorage.getItem('notes') || '[]');
         notesList.innerHTML = notes.map(note => `
             <div class="note">
                 <div class="note__text-block">
@@ -66,10 +155,11 @@ function initNotes(){
         notes.push({ header, content });
         localStorage.setItem('notes', JSON.stringify(notes));
         loadNotes();
+        socket.emit('newTask', { header, timestamp: Date.now() });
     }
 
     window.deleteNote = (header) => {
-        const notes = JSON.parse(localStorage.getItem('notes')) || '[]';
+        const notes = JSON.parse(localStorage.getItem('notes') || '[]');
         const filteredNotes = notes.filter(note => note.header !== header);
         localStorage.setItem('notes', JSON.stringify(filteredNotes));
         loadNotes();
@@ -91,16 +181,41 @@ function initNotes(){
     loadNotes();
 }
 
-if('serviceWorker' in navigator) {
+socket.on('taskAdd', (task) => {
+    console.log('Задача от другого клиента:', task);
+    const notification = document.createElement('div');
+    notification.textContent = `Новая задача: ${task.header}`;
+    notification.style.cssText = `
+        position: fixed; top: 10px; right: 10px;
+        background: #4285f4; color: white; padding: 1rem;
+        border-radius: 5px; z-index: 1000;
+    `;
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 3000);
+});
+
+homeBtn.addEventListener('click', () => {
+    setActiveBtn('home-btn');
+    loadContent('home');
+});
+
+aboutBtn.addEventListener('click', () => {
+    setActiveBtn('about-btn');
+    loadContent('about');
+});
+
+loadContent('home');
+
+
+if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
         try {
-            const registration = await 
-                navigator.serviceWorker.register('/sw.js');
-                console.log('Service Worker зарегистрирован:', registration.scope);
-        }
-        catch (e) {
+            const registration = await navigator.serviceWorker.register('/sw.js');
+            console.log('Service Worker зарегистрирован:', registration.scope);
+            
+            updatePushButtonState();
+        } catch (e) {
             console.error('Ошибка регистрации Service Worker:', e);
         }
-    })
+    });
 }
-

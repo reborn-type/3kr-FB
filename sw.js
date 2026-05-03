@@ -57,3 +57,20 @@ self.addEventListener('fetch', event => {
         );
     }
 });
+
+self.addEventListener('push', (event) => {
+    let data = {title: "Новое уведомление,", body: ""};
+    if (event.data) {
+        data = event.data.json();
+    } 
+
+    const options = {
+        body: data.body,
+        icon: '/icons/favicon-128x128.png',
+        badge: '/icons/favicon-48x48.png'
+    };
+
+    event.waitUntil(
+        self.registration.showNotification(data.title, options)
+    )
+})
