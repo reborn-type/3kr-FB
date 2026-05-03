@@ -1,17 +1,21 @@
-<div class="add-container">
-    <h1 class="add__header">Оффлайн заметки</h1>
-    <form id="note-form" class="add__form">
-        <input class="note-form__input-header" type="text" id="note-header" placeholder="Введите заголовок заметки" required>
-        <input class="note-form__input" type="text" id="note-input" placeholder="Введите заметку" required>
-        <button class="note-form__button-submit" type="submit">Добавить</button>
-    </form>
+<div class="forms-wrapper">
+    <div class="add-container">
+        <h1 class="add__header">Оффлайн заметки</h1>
+        <form id="note-form" class="add__form">
+            <input class="note-form__input-header" type="text" id="note-header" placeholder="Введите заголовок заметки" required>
+            <input class="note-form__input" type="text" id="note-input" placeholder="Введите заметку" required>
+            <button class="note-form__button-submit" type="submit">Добавить</button>
+        </form>
+    </div>
+
+    <div class="reminder-container">
+        <h1 class="reminder__header">Заметки с уведомлениями</h1>
+        <form id="reminder-form" class="reminder__form" style="margin-top: 1rem;">
+            <input class="reminder-form__header" type="text" id="reminder-header" placeholder="Введите заголовок заметки" required>
+            <input type="text" class="reminder-form__text" id="reminder-content" placeholder="Введите заметку" required> 
+            <input  class="reminder-form__date_peacker" type="datetime-local" id="reminder-time" required>
+            <button class="reminder-form__submit_btn" type="submit">Добавить с напоминанием</button>
+        </form>
+    </div>
 </div>
-
-<form id="reminder-form" class="row is-center" style="margin-top: 1rem;">
-    <input class="col-5" type="text" id="reminder-header" placeholder="Текст напоминания" required>
-    <input type="text" id="reminder-content" required> 
-    <input class="col-4" type="datetime-local" id="reminder-time" required>
-    <button class="col-3 button success" type="submit">Добавить с напоминанием</button>
-</form>
-
 <div id="notes-list" class="notes-container"></div>

@@ -3,6 +3,18 @@ const homeBtn = document.getElementById('home-btn');
 const aboutBtn = document.getElementById('about-btn');
 const socket = io('http://localhost:3001');
 
+
+socket.on('reminderSnoozed', (data) => {
+    const notes = JSON.parse(localStorage.getItem('notes') || '[]');
+    const index = notes.findIndex(n => n.id === data.id);
+    if (index !== -1) {
+        notes[index].reminder = data.newTime;
+        localStorage.setItem('notes', JSON.stringify(notes));
+        loadNotes();
+    }
+});
+
+
 function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding)
@@ -23,7 +35,7 @@ async function subscribeToPush () {
 
     try {
         const registration = await navigator.serviceWorker.ready;
-        const publicKey = 'BCAlSLHagqNovP_OBvszQOByxThSGZKJh3lpmS3BO-_lF88GXfHuEGpCdd8lC9IKxM1BfprRwzBD0351VXj5E10'.trim();
+        const publicKey = 'BO-ksqdQZR-1f0MXnubZ5Q5lElCYxaX8i_rt_JgQfnBuuoHA8VNQZ5z4Z5QFXTIgo5hThfauHdUOVuM_gGZXI-k'.trim();
         const subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: urlBase64ToUint8Array(publicKey)
@@ -120,6 +132,7 @@ async function loadContent(page){
 
         if(page == 'home'){
             initNotes();
+            updatePushButtonState();
         }
 
     } catch(e){
@@ -150,18 +163,20 @@ function initNotes(){
                 const date = new Date(note.reminder);
                 reminderInfo = `<p class="note__reminder-text">Напоминание: ${date.toLocaleString()}<p>`;
             }
-
+            
             return `
             <div class="note">
-                <div class="note__text-block">
-                    <h2 class="note__header">${note.header}</h2>
-                    <p class="note__content">${note.content}</p>
+                <div class="note-wrapper">
+                    <div class="note__text-block">
+                        <h2 class="note__header">${note.header}</h2>
+                        <p class="note__content">${note.content}</p>
+                    </div>
+                    <button class="delete-btn" onclick="deleteNote('${note.header}')">
+                        <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path opacity="0.3" d="M8 24L24 8M8 8L24 24" stroke="#F3F0E7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
                 </div>
-                <button class="delete-btn" onclick="deleteNote('${note.header}')">
-                    <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path opacity="0.3" d="M8 24L24 8M8 8L24 24" stroke="#F3F0E7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </button>
                 <div class="note__reminder">
                     ${reminderInfo}
                 </div>

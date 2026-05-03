@@ -16,18 +16,23 @@ const ASSETS = [
     '/icons/favicon-512x512.png',
 ]
 
-self.addEventListener('notificationClick', (event) => {
+self.addEventListener('notificationclick', (event) => {
     const notification = event.notification; 
     const action = event.action;
 
     if(action === 'snooze'){
         const reminderId = notification.data.reminderId;
 
-        event.waitUntil(
+        if(reminderId){
+            event.waitUntil(
             fetch(`/snooze?reminderId=${reminderId}`, {method: 'POST'})
                 .then(() => notification.close())
                 .catch(err => console.error('Snooze failed:', err))
-        );
+            );
+        } else {
+            console.error('ID напоминания отсутствует в data уведомления');
+            notification.close();
+        }
     } else {
         notification.close();
     }
@@ -76,7 +81,7 @@ self.addEventListener('fetch', event => {
 });
 
 self.addEventListener('push', (event) => {
-    let data = {title: "Новое уведомление,", body: "", reminderId: null};
+    let data = {title: "Новое уведомление", body: "", reminderId: null};
     if (event.data) {
         data = event.data.json();
     } 

@@ -10,7 +10,7 @@ require('dotenv').config();
 const reminders = new Map();
 
 const vapidKeys = {
-    'publicKey': process.env.VAPID_PUBLIC_KEY,
+    'publicKey': 'BO-ksqdQZR-1f0MXnubZ5Q5lElCYxaX8i_rt_JgQfnBuuoHA8VNQZ5z4Z5QFXTIgo5hThfauHdUOVuM_gGZXI-k',
     'privateKey': process.env.VAPID_PRIVATE_KEY
 };
 
@@ -38,6 +38,11 @@ const io = socketIo(server, {
     cors: { origin: "*", methods: ["GET", "POST"] }
 });
 
+const pushOptions = {
+    TTL: 60,
+    headers: { 'Urgency': 'high' }
+}
+
 io.on('connection', (socket) => {
     console.log('Клиент подключён:', socket.id);
 
@@ -49,9 +54,12 @@ io.on('connection', (socket) => {
             body: task.header
         });
 
-        subscriptions.forEach(sub => {
+        subscriptions.forEach((sub, index) => {
             webpush.sendNotification(sub, payload).catch(err => {
-                console.error('Push error:', err);
+                console.error('Push error:', err.statusCode);
+                if (err.statusCode === 410 || err.statusCode === 403) {
+                    subscriptions.splice(index, 1);
+                }
             });
         });
     });
@@ -74,11 +82,14 @@ io.on('connection', (socket) => {
 
             subscriptions.forEach(sub => {
                 webpush.sendNotification(sub, payload).catch(err => {
-                    console.error('Push error:', err);
+                    if (err.statusCode === 410 || err.statusCode === 403) {
+                        console.log(`Удаляю невалидную подписку: ${sub.endpoint}`);
+                        subscriptions.splice(index, 1); 
+                    } else {
+                        console.error('Push error:', err);
+                    }
                 });
             });
-
-            reminders.delete(id);
         }, delay);
 
         reminders.set(id, {timeoutId, text: header, reminderTime});
@@ -115,7 +126,7 @@ app.post('/unsubscribe', (req, res) => {
 }); 
 
 app.post('/snooze', (req, res) => {
-    const reminderId = parseInt(req.reminderId, 10);
+    const reminderId = parseInt(req.query.reminderId, 10);
     if(!reminderId || !reminders.has(reminderId)) {
         return res.status(404).json({error: "reminder not found"});
     }
@@ -123,8 +134,9 @@ app.post('/snooze', (req, res) => {
     const reminder = reminders.get(reminderId);
     clearTimeout(reminder.timeoutId);
 
-
     const newDelay = 5 * 60 * 1000;
+    const newTime = Date.now() + newDelay;
+
     const newTimeoutId = setTimeout(() => {
         const payload = JSON.stringify({
             title: 'Напоминание отложено',
@@ -142,8 +154,11 @@ app.post('/snooze', (req, res) => {
     reminders.set(reminderId, {
         timeoutId: newTimeoutId,
         text: reminder.text,
-        reminderTime: Date.now() + newDelay
+        reminderTime: newTime
     });
+    
+    io.emit('reminderSnoozed', { id: reminderId, newTime: newTime });
+
     res.status(200).json({message: "Reminder snoozed for 5 minutes"})
 })
 
