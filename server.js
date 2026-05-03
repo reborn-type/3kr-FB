@@ -7,6 +7,8 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+const reminders = new Map();
+
 const vapidKeys = {
     'publicKey': process.env.VAPID_PUBLIC_KEY,
     'privateKey': process.env.VAPID_PRIVATE_KEY
@@ -57,16 +59,43 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('Клиент отключен', socket.id);
     });
+
+    socket.on('newReminder', (reminder) => {
+        const {id, header, reminderTime} = reminder; 
+        const delay = reminderTime - Date.now();
+        if (delay <= 0) return;
+
+        const timeoutId = setTimeout(() => {
+            const payload = JSON.stringify({
+                title: 'Напоминание',
+                body: header, 
+                reminderId: id
+            });
+
+            subscriptions.forEach(sub => {
+                webpush.sendNotification(sub, payload).catch(err => {
+                    console.error('Push error:', err);
+                });
+            });
+
+            reminders.delete(id);
+        }, delay);
+
+        reminders.set(id, {timeoutId, text: header, reminderTime});
+    });
 });
 
 app.post('/subscribe', (req, res) => {
+    const subscription = req.body;
 
     if (!subscription || !subscription.endpoint) {
         return res.status(400).json({ error: 'Invalid subscription object' });
     }
 
-    subscriptions.push(req.body);
-    console.log('Новая подписка добавлена. Всего:', subscriptions.length);
+    const exists = subscriptions.find(s => s.endpoint === subscription.endpoint);
+    if (!exists) {
+        subscriptions.push(subscription);
+    }
     res.status(201).json({ message: 'Подписка сохранена' });
 });
 
@@ -84,6 +113,39 @@ app.post('/unsubscribe', (req, res) => {
     console.log(`Удалено подписок: ${initialLength - subscriptions.length}`);
     res.status(200).json({ message: 'Подписка успешно удалена с сервера' });
 }); 
+
+app.post('/snooze', (req, res) => {
+    const reminderId = parseInt(req.reminderId, 10);
+    if(!reminderId || !reminders.has(reminderId)) {
+        return res.status(404).json({error: "reminder not found"});
+    }
+
+    const reminder = reminders.get(reminderId);
+    clearTimeout(reminder.timeoutId);
+
+
+    const newDelay = 5 * 60 * 1000;
+    const newTimeoutId = setTimeout(() => {
+        const payload = JSON.stringify({
+            title: 'Напоминание отложено',
+            body: reminder.text,
+            reminderId: reminderId 
+        });
+
+        subscriptions.forEach(sub => {
+            webpush.sendNotification(sub, payload).catch(err => 
+                console.error('Push error:', err));
+        })
+        reminders.delete(reminderId);
+    }, newDelay);
+
+    reminders.set(reminderId, {
+        timeoutId: newTimeoutId,
+        text: reminder.text,
+        reminderTime: Date.now() + newDelay
+    });
+    res.status(200).json({message: "Reminder snoozed for 5 minutes"})
+})
 
 const PORT = 3001; 
 
